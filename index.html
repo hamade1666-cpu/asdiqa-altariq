@@ -1,0 +1,1767 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ultimate Traffic Safety 3D Simulator</title>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700;900&display=swap" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet">
+
+    <!-- ===== CSS STYLES ===== -->
+    <style>
+        :root {
+            --primary: #10B981;
+            --primary-dark: #059669;
+            --accent: #F59E0B;
+            --accent-dark: #D97706;
+            --bg-dark: #0a0f1a;
+            --bg-card: rgba(15, 23, 42, 0.75);
+            --text: #F1F5F9;
+            --text-muted: #94A3B8;
+            --danger: #EF4444;
+            --success: #22C55E;
+            --glass-border: rgba(255,255,255,0.08);
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Cairo', sans-serif;
+            background: var(--bg-dark);
+            color: var(--text);
+            overflow: hidden;
+            width: 100vw;
+            height: 100vh;
+        }
+
+        canvas#gameCanvas {
+            display: block;
+            width: 100vw;
+            height: 100vh;
+            position: fixed;
+            top: 0; left: 0;
+            z-index: 1;
+        }
+
+        /* ===== شاشة التحميل ===== */
+        #loadingScreen {
+            position: fixed; inset: 0;
+            z-index: 1000;
+            background: var(--bg-dark);
+            display: flex; flex-direction: column;
+            align-items: center; justify-content: center;
+            gap: 24px;
+            transition: opacity 0.8s ease;
+        }
+        #loadingScreen.hidden { opacity: 0; pointer-events: none; }
+        .loader {
+            width: 60px; height: 60px;
+            border: 4px solid rgba(16,185,129,0.2);
+            border-top-color: var(--primary);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        #loadingScreen p {
+            font-size: 1.1rem; color: var(--text-muted);
+            letter-spacing: 1px;
+        }
+
+        /* ===== شاشة البداية ===== */
+        #startScreen {
+            position: fixed; inset: 0;
+            z-index: 900;
+            background: linear-gradient(135deg, #0a0f1a 0%, #0f2027 50%, #1a1a2e 100%);
+            display: flex; align-items: center; justify-content: center;
+            transition: opacity 0.6s ease, transform 0.6s ease;
+        }
+        #startScreen.hidden { opacity: 0; pointer-events: none; transform: scale(1.05); }
+        .start-content {
+            text-align: center;
+            padding: 48px;
+        }
+        .start-content h1 {
+            font-size: 3.2rem; font-weight: 900;
+            background: linear-gradient(135deg, var(--primary), var(--accent));
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 8px;
+            animation: fadeSlideUp 1s ease;
+        }
+        .start-content h2 {
+            font-size: 1.8rem; font-weight: 700;
+            color: var(--accent);
+            margin-bottom: 20px;
+            animation: fadeSlideUp 1s ease 0.15s both;
+        }
+        .start-content .subtitle {
+            font-size: 1.1rem; color: var(--text-muted);
+            margin-bottom: 40px;
+            animation: fadeSlideUp 1s ease 0.3s both;
+        }
+        #startBtn {
+            padding: 16px 56px;
+            font-family: 'Cairo', sans-serif;
+            font-size: 1.25rem; font-weight: 700;
+            background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+            color: #fff; border: none; border-radius: 14px;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            box-shadow: 0 4px 24px rgba(16,185,129,0.35);
+            animation: fadeSlideUp 1s ease 0.45s both;
+        }
+        #startBtn:hover {
+            transform: translateY(-3px) scale(1.04);
+            box-shadow: 0 8px 32px rgba(16,185,129,0.5);
+        }
+        #startBtn:active { transform: scale(0.97); }
+        .controls-info {
+            margin-top: 36px;
+            display: flex; gap: 20px; justify-content: center; flex-wrap: wrap;
+            animation: fadeSlideUp 1s ease 0.6s both;
+        }
+        .controls-info span {
+            padding: 8px 18px;
+            background: rgba(255,255,255,0.06);
+            border: 1px solid var(--glass-border);
+            border-radius: 10px;
+            font-size: 0.9rem; color: var(--text-muted);
+        }
+        .controls-info span i { color: var(--primary); margin-left: 6px; }
+
+        @keyframes fadeSlideUp {
+            from { opacity: 0; transform: translateY(24px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* ===== HUD ===== */
+        #hud {
+            position: fixed; top: 0; left: 0; right: 0;
+            z-index: 100;
+            padding: 16px 24px;
+            display: flex; align-items: center; justify-content: space-between;
+            pointer-events: none;
+            opacity: 0; transition: opacity 0.5s;
+        }
+        #hud.visible { opacity: 1; }
+        .hud-panel {
+            background: var(--bg-card);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid var(--glass-border);
+            border-radius: 14px;
+            padding: 10px 22px;
+            display: flex; align-items: center; gap: 10px;
+            pointer-events: auto;
+            font-weight: 600; font-size: 1rem;
+        }
+        .hud-panel i { font-size: 1.1rem; }
+        .hud-panel.score i { color: var(--accent); }
+        .hud-panel.quests i { color: var(--primary); }
+        .hud-panel.timer i { color: #818CF8; }
+        #proximityHint {
+            position: fixed; bottom: 80px; left: 50%;
+            transform: translateX(-50%);
+            z-index: 100;
+            padding: 10px 28px;
+            background: rgba(245,158,11,0.15);
+            border: 1px solid rgba(245,158,11,0.4);
+            border-radius: 12px;
+            font-weight: 600; font-size: 0.95rem;
+            color: var(--accent);
+            opacity: 0; transition: opacity 0.3s;
+            pointer-events: none;
+        }
+        #proximityHint.visible { opacity: 1; }
+
+        /* ===== لوحة الأسئلة ===== */
+        #questionPanel {
+            position: fixed; inset: 0;
+            z-index: 500;
+            display: flex; align-items: center; justify-content: center;
+            background: rgba(0,0,0,0.5);
+            backdrop-filter: blur(4px);
+            opacity: 0; pointer-events: none;
+            transition: opacity 0.35s;
+        }
+        #questionPanel.visible { opacity: 1; pointer-events: auto; }
+        .question-card {
+            background: var(--bg-card);
+            backdrop-filter: blur(24px);
+            -webkit-backdrop-filter: blur(24px);
+            border: 1px solid var(--glass-border);
+            border-radius: 20px;
+            padding: 40px 48px;
+            max-width: 520px; width: 90%;
+            text-align: center;
+            transform: translateY(20px) scale(0.95);
+            transition: transform 0.35s ease;
+        }
+        #questionPanel.visible .question-card {
+            transform: translateY(0) scale(1);
+        }
+        .question-card .q-icon {
+            width: 56px; height: 56px;
+            background: linear-gradient(135deg, var(--primary), var(--accent));
+            border-radius: 16px;
+            display: flex; align-items: center; justify-content: center;
+            margin: 0 auto 20px;
+            font-size: 1.5rem; color: #fff;
+        }
+        .question-card h3 {
+            font-size: 1.3rem; font-weight: 700;
+            line-height: 1.8;
+            margin-bottom: 28px;
+            color: var(--text);
+        }
+        .options { display: flex; gap: 14px; justify-content: center; }
+        .options button {
+            flex: 1; padding: 14px 20px;
+            font-family: 'Cairo', sans-serif;
+            font-size: 1.1rem; font-weight: 700;
+            border: 2px solid var(--glass-border);
+            border-radius: 14px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        #yesBtn {
+            background: rgba(34,197,94,0.12);
+            color: var(--success);
+            border-color: rgba(34,197,94,0.3);
+        }
+        #yesBtn:hover { background: rgba(34,197,94,0.25); transform: translateY(-2px); }
+        #noBtn {
+            background: rgba(239,68,68,0.12);
+            color: var(--danger);
+            border-color: rgba(239,68,68,0.3);
+        }
+        #noBtn:hover { background: rgba(239,68,68,0.25); transform: translateY(-2px); }
+
+        /* ===== Minimap ===== */
+        #minimapContainer {
+            position: fixed; bottom: 20px; left: 20px;
+            z-index: 100;
+            width: 200px; height: 200px;
+            border-radius: 16px;
+            overflow: hidden;
+            border: 2px solid var(--glass-border);
+            background: rgba(15,23,42,0.8);
+            backdrop-filter: blur(8px);
+            opacity: 0; transition: opacity 0.5s;
+        }
+        #minimapContainer.visible { opacity: 1; }
+        #minimap { width: 100%; height: 100%; }
+
+        /* ===== تأثير الوميض ===== */
+        #flashOverlay {
+            position: fixed; inset: 0;
+            z-index: 400;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.15s;
+        }
+        #flashOverlay.correct { background: rgba(34,197,94,0.2); opacity: 1; }
+        #flashOverlay.wrong { background: rgba(239,68,68,0.25); opacity: 1; }
+
+        /* ===== شاشة النهاية ===== */
+        #endScreen {
+            position: fixed; inset: 0;
+            z-index: 800;
+            background: rgba(10,15,26,0.92);
+            backdrop-filter: blur(12px);
+            display: flex; align-items: center; justify-content: center;
+            opacity: 0; pointer-events: none;
+            transition: opacity 0.6s;
+        }
+        #endScreen.visible { opacity: 1; pointer-events: auto; }
+        .end-card {
+            text-align: center;
+            padding: 48px;
+            animation: fadeSlideUp 0.6s ease;
+        }
+        .end-card .trophy {
+            font-size: 4rem;
+            margin-bottom: 16px;
+            display: block;
+            animation: bounce 1s ease infinite alternate;
+        }
+        @keyframes bounce {
+            from { transform: translateY(0); }
+            to { transform: translateY(-10px); }
+        }
+        .end-card h1 {
+            font-size: 2.6rem; font-weight: 900;
+            color: var(--primary);
+            margin-bottom: 12px;
+        }
+        .end-card .final-score {
+            font-size: 1.4rem; color: var(--accent);
+            margin-bottom: 8px;
+        }
+        .end-card .final-time {
+            font-size: 1rem; color: var(--text-muted);
+            margin-bottom: 32px;
+        }
+        #restartBtn {
+            padding: 14px 48px;
+            font-family: 'Cairo', sans-serif;
+            font-size: 1.15rem; font-weight: 700;
+            background: linear-gradient(135deg, var(--accent), var(--accent-dark));
+            color: #fff; border: none; border-radius: 14px;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            box-shadow: 0 4px 20px rgba(245,158,11,0.3);
+        }
+        #restartBtn:hover {
+            transform: translateY(-3px) scale(1.04);
+            box-shadow: 0 8px 28px rgba(245,158,11,0.45);
+        }
+
+        /* ===== تحكم الجوال ===== */
+        #mobileControls {
+            position: fixed; bottom: 20px; right: 20px;
+            z-index: 100;
+            display: none;
+            flex-direction: column; gap: 8px;
+            opacity: 0; transition: opacity 0.5s;
+        }
+        #mobileControls.visible { opacity: 1; }
+        .m-btn {
+            width: 56px; height: 56px;
+            background: var(--bg-card);
+            backdrop-filter: blur(12px);
+            border: 1px solid var(--glass-border);
+            border-radius: 14px;
+            color: var(--text);
+            font-size: 1.2rem;
+            display: flex; align-items: center; justify-content: center;
+            cursor: pointer;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+        .m-btn:active { background: rgba(16,185,129,0.2); }
+        .m-row { display: flex; gap: 8px; }
+
+        @media (max-width: 768px) {
+            #mobileControls { display: flex; }
+            .start-content h1 { font-size: 2.2rem; }
+            .start-content h2 { font-size: 1.3rem; }
+            #minimapContainer { width: 140px; height: 140px; }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after {
+                animation-duration: 0.01ms !important;
+                transition-duration: 0.01ms !important;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- ===== HTML STRUCTURE ===== -->
+
+    <!-- شاشة التحميل -->
+    <div id="loadingScreen">
+        <div class="loader"></div>
+        <p>جاري بناء المدينة...</p>
+    </div>
+
+    <!-- شاشة البداية -->
+    <div id="startScreen" class="hidden">
+        <div class="start-content">
+            <h1>Ultimate Traffic Safety</h1>
+            <h2>3D Simulator</h2>
+            <p class="subtitle">استكشف المدينة ثلاثية الأبعاد وتعلّم قواعد السلامة المرورية</p>
+            <button id="startBtn">ابدأ المغامرة</button>
+            <div class="controls-info">
+                <span><i class="fas fa-gamepad"></i> WASD - التحرك</span>
+                <span><i class="fas fa-hand-pointer"></i> E - التفاعل</span>
+                <span><i class="fas fa-map"></i> خريطة مصغرة</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- واجهة اللعب -->
+    <div id="hud">
+        <div class="hud-panel score">
+            <i class="fas fa-star"></i>
+            <span>النقاط: <strong id="scoreValue">0</strong></span>
+        </div>
+        <div class="hud-panel quests">
+            <i class="fas fa-question-circle"></i>
+            <span>الأسئلة: <strong id="questValue">0 / 25</strong></span>
+        </div>
+        <div class="hud-panel timer">
+            <i class="fas fa-clock"></i>
+            <span id="timerValue">00:00</span>
+        </div>
+    </div>
+
+    <!-- تلميح القرب -->
+    <div id="proximityHint">
+        <i class="fas fa-hand-pointer"></i>
+        اضغط E للتفاعل مع نقطة السؤال
+    </div>
+
+    <!-- لوحة الأسئلة -->
+    <div id="questionPanel">
+        <div class="question-card">
+            <div class="q-icon"><i class="fas fa-traffic-light"></i></div>
+            <h3 id="questionText"></h3>
+            <div class="options">
+                <button id="yesBtn">نعم</button>
+                <button id="noBtn">لا</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- الخريطة المصغرة -->
+    <div id="minimapContainer">
+        <canvas id="minimap" width="200" height="200"></canvas>
+    </div>
+
+    <!-- تأثير الوميض -->
+    <div id="flashOverlay"></div>
+
+    <!-- شاشة النهاية -->
+    <div id="endScreen">
+        <div class="end-card">
+            <span class="trophy"><i class="fas fa-trophy" style="color:var(--accent)"></i></span>
+            <h1>اكتملت المهمة</h1>
+            <p class="final-score">النتيجة النهائية: <strong id="finalScore"></strong></p>
+            <p class="final-time">الوقت المستغرق: <strong id="finalTime"></strong></p>
+            <button id="restartBtn">إعادة اللعب</button>
+        </div>
+    </div>
+
+    <!-- تحكم الجوال -->
+    <div id="mobileControls">
+        <div class="m-row" style="justify-content:center">
+            <div class="m-btn" data-key="w"><i class="fas fa-arrow-up"></i></div>
+        </div>
+        <div class="m-row">
+            <div class="m-btn" data-key="a"><i class="fas fa-arrow-left"></i></div>
+            <div class="m-btn" data-key="s"><i class="fas fa-arrow-down"></i></div>
+            <div class="m-btn" data-key="d"><i class="fas fa-arrow-right"></i></div>
+        </div>
+        <div class="m-row" style="justify-content:center">
+            <div class="m-btn" data-key="e" style="background:rgba(245,158,11,0.15);border-color:rgba(245,158,11,0.4);color:var(--accent)">E</div>
+        </div>
+    </div>
+
+    <!-- ===== THREE.JS IMPORT MAP ===== -->
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+            "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+        }
+    }
+    </script>
+
+    <!-- ===== MAIN GAME SCRIPT ===== -->
+    <script type="module">
+        import * as THREE from 'three';
+
+        // ===== الثوابت والإعدادات =====
+        const CITY_SIZE = 300;
+        const HALF_CITY = CITY_SIZE / 2;
+        const ROAD_WIDTH = 10;
+        const BLOCK_SIZE = 40;
+        const PLAYER_RADIUS = 1.0;
+        const INTERACT_DISTANCE = 4.5;
+        const TOTAL_QUESTS = 25;
+        const CAMERA_HEIGHT = 28;
+        const CAMERA_DIST = 32;
+        const CAM_LERP = 0.06;
+        const EPS = 0.001;
+
+        // ===== حالة اللعبة =====
+        const GameState = { LOADING: 0, START: 1, PLAYING: 2, QUESTION: 3, ENDED: 4 };
+        let currentState = GameState.LOADING;
+        let score = 0;
+        let answeredCount = 0;
+        let startTime = 0;
+        let elapsedSeconds = 0;
+        let nearestQuest = null;
+        let shakeIntensity = 0;
+
+        // مفاتيح التحكم
+        const keys = { w: false, a: false, s: false, d: false, e: false };
+
+        // بيانات المباني للاصطدام
+        const buildingsData = [];
+        // بيانات الطرق للخريطة المصغرة
+        const roadsData = [];
+        // نقاط الأسئلة
+        const quests = [];
+        // الجسيمات
+        const particles = [];
+
+        // ===== عناصر DOM =====
+        const dom = {
+            loading: document.getElementById('loadingScreen'),
+            start: document.getElementById('startScreen'),
+            hud: document.getElementById('hud'),
+            scoreVal: document.getElementById('scoreValue'),
+            questVal: document.getElementById('questValue'),
+            timerVal: document.getElementById('timerValue'),
+            proximity: document.getElementById('proximityHint'),
+            questionPanel: document.getElementById('questionPanel'),
+            questionText: document.getElementById('questionText'),
+            yesBtn: document.getElementById('yesBtn'),
+            noBtn: document.getElementById('noBtn'),
+            minimapContainer: document.getElementById('minimapContainer'),
+            flash: document.getElementById('flashOverlay'),
+            endScreen: document.getElementById('endScreen'),
+            finalScore: document.getElementById('finalScore'),
+            finalTime: document.getElementById('finalTime'),
+            restartBtn: document.getElementById('restartBtn'),
+            startBtn: document.getElementById('startBtn'),
+            mobileControls: document.getElementById('mobileControls'),
+        };
+        const minimapCanvas = document.getElementById('minimap');
+        const minimapCtx = minimapCanvas.getContext('2d');
+
+        // ===== بيانات الأسئلة =====
+        const questionsData = [
+            { question: "هل يجب التوقف عند الإشارة الحمراء؟", correct: true },
+            { question: "هل استخدام الهاتف المحمول مسموح أثناء القيادة؟", correct: false },
+            { question: "هل يمكن عبور الطريق من أي مكان؟", correct: false },
+            { question: "هل يجب استخدام حزام الأمان دائمًا؟", correct: true },
+            { question: "هل السرعة الزائدة آمنة في حال الطوارئ؟", correct: false },
+            { question: "هل يجب الوقوف عند إشارة قف (STOP)؟", correct: true },
+            { question: "هل يمكن تجاوز السرعة المحددة قرب المدارس؟", correct: false },
+            { question: "هل يجب إعطاء الأولوية للمشاة عند العبور؟", correct: true },
+            { question: "هل القيادة تحت تأثير الكحول مسموحة؟", correct: false },
+            { question: "هل يجب استخدام إشارة الانعطاف عند الدوران؟", correct: true },
+            { question: "هل يمكن تجاهل إشارة المرور إذا كان الطريق فارغًا؟", correct: false },
+            { question: "هل يجب الحفاظ على مسافة آمنة بين المركبات؟", correct: true },
+            { question: "هل استخدام الأضواء العالية مسموح دائمًا؟", correct: false },
+            { question: "هل يجب التوقف تمامًا عند عبور المشاة؟", correct: true },
+            { question: "هل يمكن القيادة بدون رخصة في حالات الطوارئ؟", correct: false },
+            { question: "هل يجب ارتداء خوذة عند ركوب الدراجة؟", correct: true },
+            { question: "هل التجاوز في المنعطفات مسموح؟", correct: false },
+            { question: "هل يجب احترام حدود السرعة في الأحياء السكنية؟", correct: true },
+            { question: "هل يمكن استخدام الهاتف أثناء المشي في الطريق؟", correct: false },
+            { question: "هل يجب النظر يمينًا ويسارًا قبل عبور الشارع؟", correct: true },
+            { question: "هل عبور الطريق من ممر المشاة فقط هو الصحيح؟", correct: true },
+            { question: "هل يمكن اللعب في الشارع إذا كانت السيارات بعيدة؟", correct: false },
+            { question: "هل يجب الالتزام بإشارات شرطة المرور؟", correct: true },
+            { question: "هل ركوب السيارة بدون حزام أمان مسموح للكبار فقط؟", correct: false },
+            { question: "هل يجب استخدام مقعد الأطفال في السيارة؟", correct: true },
+        ];
+
+        // ===== ألوان المباني حسب المنطقة =====
+        const zoneColors = {
+            residential: ['#C17817', '#A0522D', '#CD853F', '#8B6914', '#B8860B', '#D2B48C', '#C4956A', '#A67B5B'],
+            school: ['#2ECC71', '#27AE60', '#F39C12', '#E67E22', '#1ABC9C', '#16A085', '#D4AC0D', '#CA6F1E'],
+            highway: ['#2C3E50', '#34495E', '#5D6D7E', '#85929E', '#717D7E', '#566573', '#4A4A4A', '#616A6B'],
+            downtown: ['#1C1C1C', '#2E2E2E', '#3D3D3D', '#4D4D4D', '#5C5C5C', '#6E6E6E', '#3B3B3B', '#505050'],
+            commercial: ['#8E44AD', '#7D3C98', '#6C3483', '#5B2C6F', '#4A235A', '#7D3C98', '#8E44AD', '#6C3483']
+        };
+
+        // ===== THREE.JS INIT =====
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color('#1a2332');
+        scene.fog = new THREE.FogExp2('#1a2332', 0.004);
+
+        const camera = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerHeight, 0.5, 500);
+        camera.position.set(0, CAMERA_HEIGHT, CAMERA_DIST);
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        renderer.toneMapping = THREE.ACESFilmicToneMapping;
+        renderer.toneMappingExposure = 1.1;
+        renderer.domElement.id = 'gameCanvas';
+        document.body.prepend(renderer.domElement);
+
+        // الإضاءة
+        const ambientLight = new THREE.AmbientLight('#FFE4B5', 0.45);
+        scene.add(ambientLight);
+
+        const sunLight = new THREE.DirectionalLight('#FFD699', 1.0);
+        sunLight.position.set(80, 120, 60);
+        sunLight.castShadow = true;
+        sunLight.shadow.mapSize.set(2048, 2048);
+        sunLight.shadow.camera.left = -HALF_CITY;
+        sunLight.shadow.camera.right = HALF_CITY;
+        sunLight.shadow.camera.top = HALF_CITY;
+        sunLight.shadow.camera.bottom = -HALF_CITY;
+        sunLight.shadow.camera.near = 1;
+        sunLight.shadow.camera.far = 300;
+        sunLight.shadow.bias = -0.001;
+        scene.add(sunLight);
+
+        const hemiLight = new THREE.HemisphereLight('#87CEEB', '#362D1B', 0.3);
+        scene.add(hemiLight);
+
+        // ===== WORLD GENERATION =====
+
+        // --- الأرض ---
+        function createGround() {
+            const geo = new THREE.PlaneGeometry(CITY_SIZE + 40, CITY_SIZE + 40);
+            const mat = new THREE.MeshStandardMaterial({
+                color: '#1a2e1a',
+                roughness: 0.95,
+                metalness: 0.05
+            });
+            const mesh = new THREE.Mesh(geo, mat);
+            mesh.rotation.x = -Math.PI / 2;
+            mesh.position.y = -0.05;
+            mesh.receiveShadow = true;
+            scene.add(mesh);
+        }
+
+        // --- الطرق ---
+        function createRoads() {
+            const roadMat = new THREE.MeshStandardMaterial({
+                color: '#2C2C2C',
+                roughness: 0.85,
+                metalness: 0.1
+            });
+            const sidewalkMat = new THREE.MeshStandardMaterial({
+                color: '#6B6B6B',
+                roughness: 0.8,
+                metalness: 0.05
+            });
+
+            const roadPositions = [];
+            for (let i = -HALF_CITY + 20; i <= HALF_CITY - 20; i += BLOCK_SIZE) {
+                roadPositions.push(i);
+            }
+
+            // إنشاء الطرق الأفقية والعمودية
+            roadPositions.forEach(pos => {
+                // طريق على محور X
+                const hRoadGeo = new THREE.BoxGeometry(CITY_SIZE, 0.1, ROAD_WIDTH);
+                const hRoad = new THREE.Mesh(hRoadGeo, roadMat);
+                hRoad.position.set(0, 0.02, pos);
+                hRoad.receiveShadow = true;
+                scene.add(hRoad);
+                roadsData.push({ x: 0, z: pos, w: CITY_SIZE, h: ROAD_WIDTH, dir: 'h' });
+
+                // أرصفة
+                for (let side = -1; side <= 1; side += 2) {
+                    const swGeo = new THREE.BoxGeometry(CITY_SIZE, 0.25, 1.2);
+                    const sw = new THREE.Mesh(swGeo, sidewalkMat);
+                    sw.position.set(0, 0.12, pos + side * (ROAD_WIDTH / 2 + 0.6));
+                    sw.receiveShadow = true;
+                    scene.add(sw);
+                }
+
+                // طريق على محور Z
+                const vRoadGeo = new THREE.BoxGeometry(ROAD_WIDTH, 0.1, CITY_SIZE);
+                const vRoad = new THREE.Mesh(vRoadGeo, roadMat);
+                vRoad.position.set(pos, 0.03, 0);
+                vRoad.receiveShadow = true;
+                scene.add(vRoad);
+                roadsData.push({ x: pos, z: 0, w: ROAD_WIDTH, h: CITY_SIZE, dir: 'v' });
+
+                // أرصفة عمودية
+                for (let side = -1; side <= 1; side += 2) {
+                    const swGeo2 = new THREE.BoxGeometry(1.2, 0.25, CITY_SIZE);
+                    const sw2 = new THREE.Mesh(swGeo2, sidewalkMat);
+                    sw2.position.set(pos + side * (ROAD_WIDTH / 2 + 0.6), 0.12, 0);
+                    sw2.receiveShadow = true;
+                    scene.add(sw2);
+                }
+            });
+
+            // خطوط الطريق المركزية
+            const lineMat = new THREE.MeshStandardMaterial({ color: '#CCCCCC', roughness: 0.6 });
+            roadPositions.forEach(pos => {
+                // خطوط أفقية
+                for (let x = -HALF_CITY + 2; x < HALF_CITY - 2; x += 4) {
+                    const lineGeo = new THREE.BoxGeometry(2, 0.05, 0.2);
+                    const line = new THREE.Mesh(lineGeo, lineMat);
+                    line.position.set(x, 0.08, pos);
+                    scene.add(line);
+                }
+                // خطوط عمودية
+                for (let z = -HALF_CITY + 2; z < HALF_CITY - 2; z += 4) {
+                    const lineGeo2 = new THREE.BoxGeometry(0.2, 0.05, 2);
+                    const line2 = new THREE.Mesh(lineGeo2, lineMat);
+                    line2.position.set(pos, 0.08, z);
+                    scene.add(line2);
+                }
+            });
+
+            return roadPositions;
+        }
+
+        // --- إشارات المرور ---
+        function createTrafficLights(roadPositions) {
+            const poleMat = new THREE.MeshStandardMaterial({ color: '#333333', metalness: 0.6 });
+            const redMat = new THREE.MeshStandardMaterial({ color: '#FF0000', emissive: '#FF0000', emissiveIntensity: 0.8 });
+            const yellowMat = new THREE.MeshStandardMaterial({ color: '#FFAA00', emissive: '#FFAA00', emissiveIntensity: 0.5 });
+            const greenMat = new THREE.MeshStandardMaterial({ color: '#00FF00', emissive: '#00FF00', emissiveIntensity: 0.5 });
+            const housingMat = new THREE.MeshStandardMaterial({ color: '#1A1A1A', metalness: 0.4 });
+
+            const trafficLights = [];
+
+            roadPositions.forEach(xPos => {
+                roadPositions.forEach(zPos => {
+                    // إشارة في كل تقاطع (جهة واحدة فقط للاختصار)
+                    if (Math.abs(xPos) > HALF_CITY - 30 || Math.abs(zPos) > HALF_CITY - 30) return;
+
+                    const group = new THREE.Group();
+                    group.position.set(xPos + ROAD_WIDTH / 2 + 1.5, 0, zPos + ROAD_WIDTH / 2 + 1.5);
+
+                    // العمود
+                    const poleGeo = new THREE.CylinderGeometry(0.15, 0.15, 5, 8);
+                    const pole = new THREE.Mesh(poleGeo, poleMat);
+                    pole.position.y = 2.5;
+                    pole.castShadow = true;
+                    group.add(pole);
+
+                    // صندوق الإشارة
+                    const boxGeo = new THREE.BoxGeometry(0.8, 2.4, 0.8);
+                    const box = new THREE.Mesh(boxGeo, housingMat);
+                    box.position.y = 6;
+                    box.castShadow = true;
+                    group.add(box);
+
+                    // الأضواء
+                    const lightGeo = new THREE.SphereGeometry(0.22, 8, 8);
+                    const redLight = new THREE.Mesh(lightGeo, redMat);
+                    redLight.position.set(0, 6.7, 0.41);
+                    group.add(redLight);
+
+                    const yellowLight = new THREE.Mesh(lightGeo, yellowMat);
+                    yellowLight.position.set(0, 6.0, 0.41);
+                    group.add(yellowLight);
+
+                    const greenLight = new THREE.Mesh(lightGeo, greenMat);
+                    greenLight.position.set(0, 5.3, 0.41);
+                    group.add(greenLight);
+
+                    scene.add(group);
+                    trafficLights.push({ group, redLight, yellowLight, greenLight, timer: Math.random() * 10 });
+                });
+            });
+
+            return trafficLights;
+        }
+
+        // --- أعمدة الإنارة ---
+        function createStreetLamps(roadPositions) {
+            const poleMat = new THREE.MeshStandardMaterial({ color: '#444444', metalness: 0.5 });
+            const glowMat = new THREE.MeshStandardMaterial({
+                color: '#FFE4B5',
+                emissive: '#FFE4B5',
+                emissiveIntensity: 1.5
+            });
+
+            roadPositions.forEach(pos => {
+                for (let t = -HALF_CITY + 10; t <= HALF_CITY - 10; t += 25) {
+                    // أعمدة على الطرق الأفقية
+                    const lampGroup1 = new THREE.Group();
+                    lampGroup1.position.set(t, 0, pos + ROAD_WIDTH / 2 + 2);
+
+                    const pole1 = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.12, 6, 6), poleMat);
+                    pole1.position.y = 3;
+                    lampGroup1.add(pole1);
+
+                    const arm1 = new THREE.Mesh(new THREE.BoxGeometry(1.5, 0.08, 0.08), poleMat);
+                    arm1.position.set(-0.75, 6, 0);
+                    lampGroup1.add(arm1);
+
+                    const bulb1 = new THREE.Mesh(new THREE.SphereGeometry(0.25, 8, 8), glowMat);
+                    bulb1.position.set(-1.5, 5.8, 0);
+                    lampGroup1.add(bulb1);
+
+                    scene.add(lampGroup1);
+                }
+            });
+        }
+
+        // --- المباني ---
+        function createBuildings(roadPositions) {
+            const windowTexCache = {};
+
+            function makeWindowTexture(facadeColor, windowColor, rows, cols) {
+                const key = `${facadeColor}_${windowColor}_${rows}_${cols}`;
+                if (windowTexCache[key]) return windowTexCache[key];
+
+                const canvas = document.createElement('canvas');
+                canvas.width = 128;
+                canvas.height = 256;
+                const ctx = canvas.getContext('2d');
+
+                ctx.fillStyle = facadeColor;
+                ctx.fillRect(0, 0, 128, 256);
+
+                const cellW = 128 / (cols * 2 + 1);
+                const cellH = 256 / (rows * 2 + 1);
+
+                for (let r = 0; r < rows; r++) {
+                    for (let c = 0; c < cols; c++) {
+                        const wx = cellW + c * cellW * 2;
+                        const wy = cellH + r * cellH * 2;
+                        ctx.fillStyle = windowColor;
+                        ctx.fillRect(wx, wy, cellW * 0.8, cellH * 0.75);
+                    }
+                }
+
+                const tex = new THREE.CanvasTexture(canvas);
+                tex.wrapS = THREE.RepeatWrapping;
+                tex.wrapT = THREE.RepeatWrapping;
+                windowTexCache[key] = tex;
+                return tex;
+            }
+
+            function getZone(x, z) {
+                if (x < -40 && z < -20) return 'residential';
+                if (x > 40 && z < -20) return 'school';
+                if (x < -40 && z > 40) return 'highway';
+                if (x > 40 && z > 40) return 'commercial';
+                return 'downtown';
+            }
+
+            function getZoneParams(zone) {
+                switch (zone) {
+                    case 'residential': return { minH: 4, maxH: 12, minS: 5, maxS: 12, colors: zoneColors.residential };
+                    case 'school': return { minH: 5, maxH: 10, minS: 8, maxS: 16, colors: zoneColors.school };
+                    case 'highway': return { minH: 15, maxH: 45, minS: 6, maxS: 14, colors: zoneColors.highway };
+                    case 'commercial': return { minH: 8, maxH: 25, minS: 7, maxS: 15, colors: zoneColors.commercial };
+                    case 'downtown': return { minH: 12, maxH: 55, minS: 6, maxS: 16, colors: zoneColors.downtown };
+                    default: return { minH: 6, maxH: 20, minS: 5, maxS: 12, colors: zoneColors.downtown };
+                }
+            }
+
+            // إنشاء مباني في كل مربع بين الطرق
+            for (let i = 0; i < roadPositions.length - 1; i++) {
+                for (let j = 0; j < roadPositions.length - 1; j++) {
+                    const x1 = roadPositions[i] + ROAD_WIDTH / 2 + 2;
+                    const x2 = roadPositions[i + 1] - ROAD_WIDTH / 2 - 2;
+                    const z1 = roadPositions[j] + ROAD_WIDTH / 2 + 2;
+                    const z2 = roadPositions[j + 1] - ROAD_WIDTH / 2 - 2;
+
+                    const blockCenterX = (x1 + x2) / 2;
+                    const blockCenterZ = (z1 + z2) / 2;
+                    const zone = getZone(blockCenterX, blockCenterZ);
+                    const params = getZoneParams(zone);
+
+                    const blockW = x2 - x1;
+                    const blockD = z2 - z1;
+                    const numBuildings = 1 + Math.floor(Math.random() * 3);
+
+                    for (let b = 0; b < numBuildings; b++) {
+                        const bW = Math.max(4, params.minS + Math.random() * (params.maxS - params.minS));
+                        const bD = Math.max(4, params.minS + Math.random() * (params.maxS - params.minS));
+                        const bH = Math.max(3, params.minH + Math.random() * (params.maxH - params.minH));
+
+                        let bX, bZ;
+                        if (numBuildings === 1) {
+                            bX = blockCenterX;
+                            bZ = blockCenterZ;
+                        } else {
+                            bX = x1 + bW / 2 + Math.random() * Math.max(1, blockW - bW);
+                            bZ = z1 + bD / 2 + Math.random() * Math.max(1, blockD - bD);
+                        }
+
+                        // تأكد من أن المبنى داخل المربع
+                        bX = Math.max(x1 + bW / 2, Math.min(bX, x2 - bW / 2));
+                        bZ = Math.max(z1 + bD / 2, Math.min(bZ, z2 - bD / 2));
+
+                        const colorIdx = Math.floor(Math.random() * params.colors.length);
+                        const bColor = params.colors[colorIdx];
+                        const windowColor = Math.random() > 0.4 ? '#FFE8A0' : '#88CCFF';
+
+                        const rows = Math.max(1, Math.floor(bH / 4));
+                        const cols = Math.max(1, Math.floor(bW / 4));
+                        const tex = makeWindowTexture(bColor, windowColor, rows, cols);
+
+                        const materials = [
+                            new THREE.MeshStandardMaterial({ map: tex, roughness: 0.7, metalness: 0.1 }),
+                            new THREE.MeshStandardMaterial({ map: tex, roughness: 0.7, metalness: 0.1 }),
+                            new THREE.MeshStandardMaterial({ color: bColor, roughness: 0.6, metalness: 0.15 }),
+                            new THREE.MeshStandardMaterial({ color: bColor, roughness: 0.8 }),
+                            new THREE.MeshStandardMaterial({ map: tex, roughness: 0.7, metalness: 0.1 }),
+                            new THREE.MeshStandardMaterial({ map: tex, roughness: 0.7, metalness: 0.1 }),
+                        ];
+
+                        const geo = new THREE.BoxGeometry(
+                            Math.max(EPS, bW),
+                            Math.max(EPS, bH),
+                            Math.max(EPS, bD)
+                        );
+                        const mesh = new THREE.Mesh(geo, materials);
+                        mesh.position.set(bX, bH / 2, bZ);
+                        mesh.castShadow = true;
+                        mesh.receiveShadow = true;
+                        scene.add(mesh);
+
+                        buildingsData.push({
+                            x: bX, z: bZ,
+                            width: bW, depth: bD, height: bH,
+                            color: bColor, zone
+                        });
+                    }
+                }
+            }
+        }
+
+        // --- أشجار ---
+        function createTrees(roadPositions) {
+            const trunkMat = new THREE.MeshStandardMaterial({ color: '#5C3317', roughness: 0.9 });
+            const leafMats = [
+                new THREE.MeshStandardMaterial({ color: '#228B22', roughness: 0.8 }),
+                new THREE.MeshStandardMaterial({ color: '#2E8B57', roughness: 0.8 }),
+                new THREE.MeshStandardMaterial({ color: '#006400', roughness: 0.8 }),
+            ];
+
+            const trunkGeo = new THREE.CylinderGeometry(0.15, 0.25, 2.5, 6);
+            const leafGeo = new THREE.ConeGeometry(1.5, 3, 8);
+
+            roadPositions.forEach(pos => {
+                for (let t = -HALF_CITY + 8; t <= HALF_CITY - 8; t += 18) {
+                    if (Math.random() > 0.5) continue;
+
+                    const offsets = [
+                        { x: t, z: pos + ROAD_WIDTH / 2 + 3 },
+                        { x: pos + ROAD_WIDTH / 2 + 3, z: t },
+                    ];
+
+                    offsets.forEach(off => {
+                        if (Math.abs(off.x) > HALF_CITY - 5 || Math.abs(off.z) > HALF_CITY - 5) return;
+                        if (isInsideBuilding(off.x, off.z, 2)) return;
+
+                        const group = new THREE.Group();
+                        group.position.set(off.x, 0, off.z);
+
+                        const trunk = new THREE.Mesh(trunkGeo, trunkMat);
+                        trunk.position.y = 1.25;
+                        trunk.castShadow = true;
+                        group.add(trunk);
+
+                        const leafMat = leafMats[Math.floor(Math.random() * leafMats.length)];
+                        const leaves = new THREE.Mesh(leafGeo, leafMat);
+                        leaves.position.y = 4;
+                        leaves.castShadow = true;
+                        group.add(leaves);
+
+                        scene.add(group);
+                    });
+                }
+            });
+        }
+
+        function isInsideBuilding(x, z, margin) {
+            for (const b of buildingsData) {
+                if (x > b.x - b.width / 2 - margin && x < b.x + b.width / 2 + margin &&
+                    z > b.z - b.depth / 2 - margin && z < b.z + b.depth / 2 + margin) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        // --- ممرات المشاة ---
+        function createCrosswalks(roadPositions) {
+            const cwMat = new THREE.MeshStandardMaterial({ color: '#DDDDDD', roughness: 0.6 });
+
+            roadPositions.forEach(xPos => {
+                roadPositions.forEach(zPos => {
+                    if (Math.abs(xPos) > HALF_CITY - 30 || Math.abs(zPos) > HALF_CITY - 30) return;
+
+                    // ممرات أفقية
+                    for (let i = -3; i <= 3; i++) {
+                        const stripGeo = new THREE.BoxGeometry(ROAD_WIDTH * 0.8, 0.05, 0.5);
+                        const strip = new THREE.Mesh(stripGeo, cwMat);
+                        strip.position.set(xPos, 0.06, zPos + i * 1.2 + ROAD_WIDTH / 2 + 1);
+                        scene.add(strip);
+                    }
+                    // ممرات عمودية
+                    for (let i = -3; i <= 3; i++) {
+                        const stripGeo2 = new THREE.BoxGeometry(0.5, 0.05, ROAD_WIDTH * 0.8);
+                        const strip2 = new THREE.Mesh(stripGeo2, cwMat);
+                        strip2.position.set(xPos + i * 1.2 + ROAD_WIDTH / 2 + 1, 0.06, zPos);
+                        scene.add(strip2);
+                    }
+                });
+            });
+        }
+
+        // ===== PLAYER SYSTEM =====
+        const player = {
+            mesh: null,
+            position: new THREE.Vector3(0, 0, 0),
+            velocity: new THREE.Vector3(0, 0, 0),
+            rotation: 0,
+            targetRotation: 0,
+            accel: 0.018,
+            maxSpeed: 0.38,
+            friction: 0.88,
+        };
+
+        function createPlayer() {
+            const group = new THREE.Group();
+
+            // الجسم
+            const bodyGeo = new THREE.CylinderGeometry(0.5, 0.6, 1.8, 8);
+            const bodyMat = new THREE.MeshStandardMaterial({
+                color: '#10B981',
+                roughness: 0.4,
+                metalness: 0.2,
+                emissive: '#10B981',
+                emissiveIntensity: 0.15
+            });
+            const body = new THREE.Mesh(bodyGeo, bodyMat);
+            body.position.y = 0.9;
+            body.castShadow = true;
+            group.add(body);
+
+            // الرأس
+            const headGeo = new THREE.SphereGeometry(0.4, 10, 10);
+            const headMat = new THREE.MeshStandardMaterial({
+                color: '#F5DEB3',
+                roughness: 0.6,
+                metalness: 0.05
+            });
+            const head = new THREE.Mesh(headGeo, headMat);
+            head.position.y = 2.2;
+            head.castShadow = true;
+            group.add(head);
+
+            // القبعة
+            const hatGeo = new THREE.CylinderGeometry(0.3, 0.45, 0.4, 8);
+            const hatMat = new THREE.MeshStandardMaterial({
+                color: '#059669',
+                roughness: 0.5,
+                metalness: 0.1
+            });
+            const hat = new THREE.Mesh(hatGeo, hatMat);
+            hat.position.y = 2.6;
+            hat.castShadow = true;
+            group.add(hat);
+
+            // مؤشر الاتجاه
+            const arrowGeo = new THREE.ConeGeometry(0.2, 0.5, 4);
+            const arrowMat = new THREE.MeshStandardMaterial({
+                color: '#F59E0B',
+                emissive: '#F59E0B',
+                emissiveIntensity: 0.5
+            });
+            const arrow = new THREE.Mesh(arrowGeo, arrowMat);
+            arrow.rotation.x = Math.PI / 2;
+            arrow.position.set(0, 1.2, -0.8);
+            group.add(arrow);
+
+            group.position.set(0, 0, 0);
+            scene.add(group);
+            player.mesh = group;
+        }
+
+        function updatePlayer(delta) {
+            if (currentState !== GameState.PLAYING) return;
+
+            const inputForce = new THREE.Vector3(0, 0, 0);
+            if (keys.w) inputForce.z -= 1;
+            if (keys.s) inputForce.z += 1;
+            if (keys.a) inputForce.x -= 1;
+            if (keys.d) inputForce.x += 1;
+
+            if (inputForce.length() > 0) {
+                inputForce.normalize().multiplyScalar(player.accel);
+                player.velocity.add(inputForce);
+            }
+
+            // تحديد السرعة القصوى
+            const speed = player.velocity.length();
+            if (speed > player.maxSpeed) {
+                player.velocity.normalize().multiplyScalar(player.maxSpeed);
+            }
+
+            // الاحتكاك
+            player.velocity.multiplyScalar(player.friction);
+
+            // إيقاف الحركة البطيئة جداً
+            if (player.velocity.length() < 0.001) {
+                player.velocity.set(0, 0, 0);
+            }
+
+            // حساب الموضع الجديد مع كشف التصادم
+            const newPos = player.position.clone().add(player.velocity);
+
+            // حدود المدينة
+            newPos.x = Math.max(-HALF_CITY + 2, Math.min(HALF_CITY - 2, newPos.x));
+            newPos.z = Math.max(-HALF_CITY + 2, Math.min(HALF_CITY - 2, newPos.z));
+
+            if (!checkCollision(newPos)) {
+                player.position.copy(newPos);
+            } else {
+                // محاولة الانزلاق
+                const slideX = player.position.clone();
+                slideX.x += player.velocity.x;
+                slideX.x = Math.max(-HALF_CITY + 2, Math.min(HALF_CITY - 2, slideX.x));
+                if (!checkCollision(slideX)) {
+                    player.position.x = slideX.x;
+                }
+
+                const slideZ = player.position.clone();
+                slideZ.z += player.velocity.z;
+                slideZ.z = Math.max(-HALF_CITY + 2, Math.min(HALF_CITY - 2, slideZ.z));
+                if (!checkCollision(slideZ)) {
+                    player.position.z = slideZ.z;
+                }
+
+                player.velocity.multiplyScalar(0.3);
+            }
+
+            // تحديث الاتجاه
+            if (speed > 0.01) {
+                player.targetRotation = Math.atan2(player.velocity.x, player.velocity.z);
+            }
+
+            // دوران سلس
+            let rotDiff = player.targetRotation - player.rotation;
+            while (rotDiff > Math.PI) rotDiff -= Math.PI * 2;
+            while (rotDiff < -Math.PI) rotDiff += Math.PI * 2;
+            player.rotation += rotDiff * 0.12;
+
+            // تحديث الميش
+            player.mesh.position.set(player.position.x, 0, player.position.z);
+            player.mesh.rotation.y = player.rotation;
+        }
+
+        function checkCollision(pos) {
+            const r = PLAYER_RADIUS;
+            for (const b of buildingsData) {
+                const halfW = b.width / 2 + r;
+                const halfD = b.depth / 2 + r;
+                if (pos.x > b.x - halfW && pos.x < b.x + halfW &&
+                    pos.z > b.z - halfD && pos.z < b.z + halfD) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        // ===== CAMERA SYSTEM =====
+        const cameraTarget = new THREE.Vector3();
+        const cameraOffset = new THREE.Vector3(0, CAMERA_HEIGHT, CAMERA_DIST);
+
+        function updateCamera() {
+            const targetPos = new THREE.Vector3().copy(player.position).add(cameraOffset);
+
+            // تأثير الاهتزاز
+            if (shakeIntensity > 0.01) {
+                targetPos.x += (Math.random() - 0.5) * shakeIntensity;
+                targetPos.y += (Math.random() - 0.5) * shakeIntensity * 0.5;
+                targetPos.z += (Math.random() - 0.5) * shakeIntensity;
+                shakeIntensity *= 0.9;
+            }
+
+            // زوم ديناميكي حسب السرعة
+            const speed = player.velocity.length();
+            const zoomAdd = speed * 15;
+            targetPos.z += zoomAdd;
+            targetPos.y += zoomAdd * 0.4;
+
+            camera.position.lerp(targetPos, CAM_LERP);
+
+            cameraTarget.copy(player.position);
+            cameraTarget.y += 2;
+            camera.lookAt(cameraTarget);
+        }
+
+        function triggerShake(intensity) {
+            shakeIntensity = intensity;
+        }
+
+        // ===== QUEST SYSTEM =====
+        const questMarkers = [];
+        let activeQuestIndex = -1;
+
+        function createQuests(roadPositions) {
+            // اختيار نقاط متفرقة في المدينة
+            const positions = [];
+            const step = Math.max(1, Math.floor(roadPositions.length / 6));
+
+            for (let i = 1; i < roadPositions.length - 1 && positions.length < TOTAL_QUESTS; i += step) {
+                for (let j = 1; j < roadPositions.length - 1 && positions.length < TOTAL_QUESTS; j += step) {
+                    const x = roadPositions[i] + (Math.random() - 0.5) * 6;
+                    const z = roadPositions[j] + (Math.random() - 0.5) * 6;
+                    positions.push({ x, z });
+                }
+            }
+
+            // إكمال العدد المطلوب
+            while (positions.length < TOTAL_QUESTS) {
+                const ri = Math.floor(Math.random() * (roadPositions.length - 2)) + 1;
+                const rj = Math.floor(Math.random() * (roadPositions.length - 2)) + 1;
+                const x = roadPositions[ri] + (Math.random() - 0.5) * 6;
+                const z = roadPositions[rj] + (Math.random() - 0.5) * 6;
+                if (!isInsideBuilding(x, z, 3)) {
+                    positions.push({ x, z });
+                }
+            }
+
+            const diamondGeo = new THREE.OctahedronGeometry(0.8, 0);
+            const ringGeo = new THREE.TorusGeometry(1.2, 0.1, 8, 24);
+
+            for (let i = 0; i < TOTAL_QUESTS; i++) {
+                const pos = positions[i];
+                const qData = questionsData[i % questionsData.length];
+
+                const group = new THREE.Group();
+                group.position.set(pos.x, 3, pos.z);
+
+                // الماسة
+                const diamondMat = new THREE.MeshStandardMaterial({
+                    color: '#F59E0B',
+                    emissive: '#F59E0B',
+                    emissiveIntensity: 0.8,
+                    metalness: 0.4,
+                    roughness: 0.3,
+                    transparent: true,
+                    opacity: 0.9
+                });
+                const diamond = new THREE.Mesh(diamondGeo, diamondMat);
+                diamond.castShadow = true;
+                group.add(diamond);
+
+                // الحلقة المتوهجة
+                const ringMat = new THREE.MeshStandardMaterial({
+                    color: '#F59E0B',
+                    emissive: '#F59E0B',
+                    emissiveIntensity: 0.4,
+                    transparent: true,
+                    opacity: 0.5
+                });
+                const ring = new THREE.Mesh(ringGeo, ringMat);
+                ring.rotation.x = Math.PI / 2;
+                group.add(ring);
+
+                // ضوء نقطي
+                const pointLight = new THREE.PointLight('#F59E0B', 2, 12);
+                pointLight.position.y = 1;
+                group.add(pointLight);
+
+                scene.add(group);
+
+                const quest = {
+                    position: new THREE.Vector3(pos.x, 0, pos.z),
+                    question: qData.question,
+                    correctAnswer: qData.correct,
+                    answered: false,
+                    group,
+                    diamond,
+                    ring,
+                    pointLight,
+                    baseY: 3
+                };
+
+                quests.push(quest);
+                questMarkers.push(quest);
+            }
+        }
+
+        function updateQuestMarkers(time) {
+            questMarkers.forEach((q, i) => {
+                if (q.answered) return;
+                // حركة طفو
+                q.group.position.y = q.baseY + Math.sin(time * 2 + i * 0.5) * 0.5;
+                // دوران
+                q.diamond.rotation.y = time * 1.5 + i;
+                q.ring.rotation.z = time * 0.8 + i;
+                // نبض الضوء
+                q.pointLight.intensity = 1.5 + Math.sin(time * 3 + i) * 0.8;
+            });
+        }
+
+        function checkQuestProximity() {
+            if (currentState !== GameState.PLAYING) return;
+
+            nearestQuest = null;
+            let minDist = Infinity;
+
+            quests.forEach((q, idx) => {
+                if (q.answered) return;
+                const dist = player.position.distanceTo(q.position);
+                if (dist < INTERACT_DISTANCE && dist < minDist) {
+                    minDist = dist;
+                    nearestQuest = { quest: q, index: idx };
+                }
+            });
+
+            // إظهار تلميح القرب
+            if (nearestQuest) {
+                dom.proximity.classList.add('visible');
+                // نبض أسرع عند القرب
+                nearestQuest.quest.diamond.rotation.y += 0.05;
+            } else {
+                dom.proximity.classList.remove('visible');
+            }
+        }
+
+        function openQuestion(questObj) {
+            if (currentState !== GameState.PLAYING) return;
+            currentState = GameState.QUESTION;
+            activeQuestIndex = quests.indexOf(questObj);
+
+            dom.questionText.textContent = questObj.question;
+            dom.questionPanel.classList.add('visible');
+        }
+
+        function handleAnswer(answer) {
+            if (currentState !== GameState.QUESTION || activeQuestIndex < 0) return;
+
+            const quest = quests[activeQuestIndex];
+            const isCorrect = (answer === quest.correctAnswer);
+
+            if (isCorrect) {
+                score++;
+                answeredCount++;
+                quest.answered = true;
+
+                // تغيير لون العلامة إلى أخضر
+                quest.diamond.material.color.set('#22C55E');
+                quest.diamond.material.emissive.set('#22C55E');
+                quest.ring.material.color.set('#22C55E');
+                quest.ring.material.emissive.set('#22C55E');
+                quest.pointLight.color.set('#22C55E');
+                quest.pointLight.intensity = 3;
+
+                // تأثير وميض أخضر
+                flashScreen('correct');
+
+                // انبعاث جسيمات
+                emitParticles(quest.position.clone().add(new THREE.Vector3(0, 3, 0)), '#22C55E');
+
+                // تشغيل صوت بسيط
+                playTone(800, 0.15, 'sine');
+                setTimeout(() => playTone(1200, 0.1, 'sine'), 150);
+            } else {
+                // إجابة خاطئة
+                flashScreen('wrong');
+                triggerShake(0.8);
+                playTone(200, 0.3, 'square');
+
+                // العلامة تبقى كما هي يمكن إعادة المحاولة
+            }
+
+            // تحديث واجهة المستخدم
+            updateHUD();
+
+            // إغلاق لوحة السؤال
+            dom.questionPanel.classList.remove('visible');
+            currentState = GameState.PLAYING;
+            activeQuestIndex = -1;
+
+            // التحقق من انتهاء اللعبة
+            if (answeredCount >= TOTAL_QUESTS) {
+                setTimeout(endGame, 1000);
+            }
+        }
+
+        // ===== PARTICLE SYSTEM =====
+        function emitParticles(position, color) {
+            const particleCount = 30;
+            const geo = new THREE.SphereGeometry(0.12, 4, 4);
+            const mat = new THREE.MeshStandardMaterial({
+                color: color,
+                emissive: color,
+                emissiveIntensity: 1.5,
+                transparent: true,
+                opacity: 1
+            });
+
+            for (let i = 0; i < particleCount; i++) {
+                const mesh = new THREE.Mesh(geo, mat.clone());
+                mesh.position.copy(position);
+                scene.add(mesh);
+
+                const angle = Math.random() * Math.PI * 2;
+                const upForce = 0.05 + Math.random() * 0.12;
+                const outForce = 0.03 + Math.random() * 0.08;
+
+                particles.push({
+                    mesh,
+                    velocity: new THREE.Vector3(
+                        Math.cos(angle) * outForce,
+                        upForce,
+                        Math.sin(angle) * outForce
+                    ),
+                    life: 1.0,
+                    decay: 0.01 + Math.random() * 0.02
+                });
+            }
+        }
+
+        function updateParticles() {
+            for (let i = particles.length - 1; i >= 0; i--) {
+                const p = particles[i];
+                p.mesh.position.add(p.velocity);
+                p.velocity.y -= 0.002; // جاذبية خفيفة
+                p.life -= p.decay;
+                p.mesh.material.opacity = Math.max(0, p.life);
+                p.mesh.scale.setScalar(Math.max(EPS, p.life));
+
+                if (p.life <= 0) {
+                    scene.remove(p.mesh);
+                    p.mesh.geometry.dispose();
+                    p.mesh.material.dispose();
+                    particles.splice(i, 1);
+                }
+            }
+        }
+
+        // ===== UI SYSTEM =====
+        function updateHUD() {
+            dom.scoreVal.textContent = score;
+            dom.questVal.textContent = `${answeredCount} / ${TOTAL_QUESTS}`;
+        }
+
+        function updateTimer() {
+            if (currentState !== GameState.PLAYING) return;
+            elapsedSeconds = Math.floor((Date.now() - startTime) / 1000);
+            const mins = String(Math.floor(elapsedSeconds / 60)).padStart(2, '0');
+            const secs = String(elapsedSeconds % 60).padStart(2, '0');
+            dom.timerVal.textContent = `${mins}:${secs}`;
+        }
+
+        function flashScreen(type) {
+            dom.flash.classList.add(type);
+            setTimeout(() => dom.flash.classList.remove(type), 300);
+        }
+
+        function showHUD() {
+            dom.hud.classList.add('visible');
+            dom.minimapContainer.classList.add('visible');
+            dom.mobileControls.classList.add('visible');
+        }
+
+        function hideHUD() {
+            dom.hud.classList.remove('visible');
+            dom.minimapContainer.classList.remove('visible');
+            dom.mobileControls.classList.remove('visible');
+            dom.proximity.classList.remove('visible');
+        }
+
+        // ===== MINIMAP SYSTEM =====
+        function updateMinimap() {
+            const ctx = minimapCtx;
+            const w = 200, h = 200;
+            const scale = w / 120; // عرض المنطقة المعروضة
+
+            ctx.clearRect(0, 0, w, h);
+
+            // خلفية
+            ctx.fillStyle = '#0D1117';
+            ctx.fillRect(0, 0, w, h);
+
+            // مركز الخريطة على اللاعب
+            const cx = w / 2;
+            const cy = h / 2;
+            const px = player.position.x;
+            const pz = player.position.z;
+
+            // رسم الطرق
+            ctx.fillStyle = '#2A2E35';
+            for (let pos = -HALF_CITY; pos <= HALF_CITY; pos += BLOCK_SIZE) {
+                // أفقي
+                const ry = cy + (pos - pz) * scale;
+                if (ry > -10 && ry < h + 10) {
+                    ctx.fillRect(0, ry - ROAD_WIDTH * scale / 2, w, ROAD_WIDTH * scale);
+                }
+                // عمودي
+                const rx = cx + (pos - px) * scale;
+                if (rx > -10 && rx < w + 10) {
+                    ctx.fillRect(rx - ROAD_WIDTH * scale / 2, 0, ROAD_WIDTH * scale, h);
+                }
+            }
+
+            // رسم المباني
+            buildingsData.forEach(b => {
+                const bx = cx + (b.x - px) * scale;
+                const by = cy + (b.z - pz) * scale;
+                if (bx < -20 || bx > w + 20 || by < -20 || by > h + 20) return;
+
+                const bw = b.width * scale;
+                const bd = b.depth * scale;
+                let color = '#3A3E45';
+                if (b.zone === 'residential') color = '#5C4A2A';
+                else if (b.zone === 'school') color = '#2A5C3A';
+                else if (b.zone === 'highway') color = '#2A2E35';
+                else if (b.zone === 'downtown') color = '#1E2025';
+
+                ctx.fillStyle = color;
+                ctx.fillRect(bx - bw / 2, by - bd / 2, bw, bd);
+            });
+
+            // رسم نقاط الأسئلة
+            quests.forEach(q => {
+                const qx = cx + (q.position.x - px) * scale;
+                const qy = cy + (q.position.z - pz) * scale;
+                if (qx < 0 || qx > w || qy < 0 || qy > h) return;
+
+                ctx.fillStyle = q.answered ? '#22C55E' : '#F59E0B';
+                ctx.beginPath();
+                ctx.arc(qx, qy, 3, 0, Math.PI * 2);
+                ctx.fill();
+            });
+
+            // رسم اللاعب (مثلث يشير للاتجاه)
+            ctx.save();
+            ctx.translate(cx, cy);
+            ctx.rotate(player.rotation);
+            ctx.fillStyle = '#EF4444';
+            ctx.beginPath();
+            ctx.moveTo(0, -6);
+            ctx.lineTo(-4, 4);
+            ctx.lineTo(4, 4);
+            ctx.closePath();
+            ctx.fill();
+            ctx.restore();
+
+            // إطار
+            ctx.strokeStyle = 'rgba(255,255,255,0.1)';
+            ctx.lineWidth = 1;
+            ctx.strokeRect(0, 0, w, h);
+        }
+
+        // ===== SOUND SYSTEM (Simple tones) =====
+        let audioCtx = null;
+
+        function playTone(frequency, duration, type) {
+            try {
+                if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.type = type || 'sine';
+                osc.frequency.value = frequency;
+                gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc.start();
+                osc.stop(audioCtx.currentTime + duration);
+            } catch (e) {
+                // تجاهل أخطاء الصوت
+            }
+        }
+
+        // ===== END GAME SYSTEM =====
+        function endGame() {
+            currentState = GameState.ENDED;
+            hideHUD();
+
+            const mins = String(Math.floor(elapsedSeconds / 60)).padStart(2, '0');
+            const secs = String(elapsedSeconds % 60).padStart(2, '0');
+
+            dom.finalScore.textContent = `${score} / ${TOTAL_QUESTS}`;
+            dom.finalTime.textContent = `${mins}:${secs}`;
+            dom.endScreen.classList.add('visible');
+
+            playTone(523, 0.15, 'sine');
+            setTimeout(() => playTone(659, 0.15, 'sine'), 150);
+            setTimeout(() => playTone(784, 0.3, 'sine'), 300);
+        }
+
+        function restartGame() {
+            // إعادة تعيين حالة اللعبة
+            score = 0;
+            answeredCount = 0;
+            elapsedSeconds = 0;
+            shakeIntensity = 0;
+            nearestQuest = null;
+            activeQuestIndex = -1;
+
+            player.position.set(0, 0, 0);
+            player.velocity.set(0, 0, 0);
+            player.rotation = 0;
+            player.targetRotation = 0;
+
+            // إعادة تعيين الأسئلة
+            quests.forEach(q => {
+                q.answered = false;
+                q.diamond.material.color.set('#F59E0B');
+                q.diamond.material.emissive.set('#F59E0B');
+                q.ring.material.color.set('#F59E0B');
+                q.ring.material.emissive.set('#F59E0B');
+                q.pointLight.color.set('#F59E0B');
+            });
+
+            // تنظيف الجسيمات
+            particles.forEach(p => {
+                scene.remove(p.mesh);
+                p.mesh.geometry.dispose();
+                p.mesh.material.dispose();
+            });
+            particles.length = 0;
+
+            updateHUD();
+            dom.endScreen.classList.remove('visible');
+            dom.questionPanel.classList.remove('visible');
+
+            startTime = Date.now();
+            currentState = GameState.PLAYING;
+            showHUD();
+        }
+
+        // ===== إشارات المرور المتحركة =====
+        let trafficLights = [];
+
+        function updateTrafficLights(time) {
+            trafficLights.forEach(tl => {
+                const cycle = (time + tl.timer) % 10;
+                if (cycle < 5) {
+                    tl.redLight.material.emissiveIntensity = 1.0;
+                    tl.yellowLight.material.emissiveIntensity = 0.1;
+                    tl.greenLight.material.emissiveIntensity = 0.1;
+                } else if (cycle < 6) {
+                    tl.redLight.material.emissiveIntensity = 0.1;
+                    tl.yellowLight.material.emissiveIntensity = 1.0;
+                    tl.greenLight.material.emissiveIntensity = 0.1;
+                } else {
+                    tl.redLight.material.emissiveIntensity = 0.1;
+                    tl.yellowLight.material.emissiveIntensity = 0.1;
+                    tl.greenLight.material.emissiveIntensity = 1.0;
+                }
+            });
+        }
+
+        // ===== GAME LOOP =====
+        const clock = new THREE.Clock();
+
+        function gameLoop() {
+            requestAnimationFrame(gameLoop);
+
+            const delta = clock.getDelta();
+            const time = clock.getElapsedTime();
+
+            if (currentState === GameState.PLAYING || currentState === GameState.QUESTION) {
+                updatePlayer(delta);
+                updateCamera();
+                updateQuestMarkers(time);
+                checkQuestProximity();
+                updateParticles();
+                updateTrafficLights(time);
+                updateTimer();
+                updateMinimap();
+            } else if (currentState === GameState.ENDED) {
+                updateParticles();
+            }
+
+            renderer.render(scene, camera);
+        }
+
+        // ===== EVENT HANDLERS =====
+        window.addEventListener('keydown', (e) => {
+            const key = e.key.toLowerCase();
+            if (key in keys) keys[key] = true;
+
+            if (key === 'e' && nearestQuest && currentState === GameState.PLAYING) {
+                openQuestion(nearestQuest.quest);
+            }
+
+            // منع تمرير الصفحة عند استخدام مفاتيح اللعبة
+            if (['w', 'a', 's', 'd', 'e', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright'].includes(key)) {
+                e.preventDefault();
+            }
+        });
+
+        window.addEventListener('keyup', (e) => {
+            const key = e.key.toLowerCase();
+            if (key in keys) keys[key] = false;
+        });
+
+        // أزرار الأسئلة
+        dom.yesBtn.addEventListener('click', () => handleAnswer(true));
+        dom.noBtn.addEventListener('click', () => handleAnswer(false));
+
+        // زر البداية
+        dom.startBtn.addEventListener('click', () => {
+            dom.start.classList.add('hidden');
+            startTime = Date.now();
+            currentState = GameState.PLAYING;
+            showHUD();
+            playTone(600, 0.1, 'sine');
+        });
+
+        // زر إعادة اللعب
+        dom.restartBtn.addEventListener('click', restartGame);
+
+        // تحكم الجوال
+        document.querySelectorAll('.m-btn').forEach(btn => {
+            const key = btn.dataset.key;
+            btn.addEventListener('touchstart', (e) => {
+                e.preventDefault();
+                keys[key] = true;
+                if (key === 'e' && nearestQuest && currentState === GameState.PLAYING) {
+                    openQuestion(nearestQuest.quest);
+                }
+            });
+            btn.addEventListener('touchend', (e) => {
+                e.preventDefault();
+                keys[key] = false;
+            });
+            btn.addEventListener('mousedown', () => {
+                keys[key] = true;
+                if (key === 'e' && nearestQuest && currentState === GameState.PLAYING) {
+                    openQuestion(nearestQuest.quest);
+                }
+            });
+            btn.addEventListener('mouseup', () => { keys[key] = false; });
+        });
+
+        // تغيير حجم النافذة
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        // ===== INITIALIZATION =====
+        async function initGame() {
+            // إنشاء الأرض
+            createGround();
+
+            // إنشاء الطرق والحصول على مواقعها
+            const roadPositions = createRoads();
+
+            // إنشاء المباني
+            createBuildings(roadPositions);
+
+            // إنشاء ممرات المشاة
+            createCrosswalks(roadPositions);
+
+            // إنشاء إشارات المرور
+            trafficLights = createTrafficLights(roadPositions);
+
+            // إنشاء أعمدة الإنارة
+            createStreetLamps(roadPositions);
+
+            // إنشاء الأشجار
+            createTrees(roadPositions);
+
+            // إنشاء اللاعب
+            createPlayer();
+
+            // إنشاء نقاط الأسئلة
+            createQuests(roadPositions);
+
+            // تحديث HUD
+            updateHUD();
+
+            // إخفاء شاشة التحميل وإظهار شاشة البداية
+            await new Promise(r => setTimeout(r, 500));
+            dom.loading.classList.add('hidden');
+            dom.start.classList.remove('hidden');
+            currentState = GameState.START;
+
+            // بدء حلقة اللعبة
+            gameLoop();
+        }
+
+        initGame();
+    </script>
+</body>
+</html>
